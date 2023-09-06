@@ -1660,8 +1660,16 @@ class TokenParser(object):
         self.log_node('[tree method reference]')
 
         field = self.parse_expression_2(obj.expression)
-        self.add_global_field(field)
 
+        # fix method reference with `::`
+        if field: # field may be empty due to `this` identifier of any literal, i.e `this::someMethod` syntax
+            if 'member' in field and type(field['member']) == list:
+                for name in field['member']:
+                    self.add_global_field(name=name)
+            else:
+                self.add_global_field(name=field['mamber'])
+        
+        # self.add_global_field(field)
 
         method = obj.method
         if method is not None:
