@@ -1661,13 +1661,16 @@ class TokenParser(object):
 
         field = self.parse_expression_2(obj.expression)
 
-        # fix method reference with `::`
+        # fix method reference with `::` syntax
         if field: # field may be empty due to `this` identifier of any literal, i.e `this::someMethod` syntax
             if 'member' in field and type(field['member']) == list:
                 for name in field['member']:
                     self.add_global_field(name=name)
+            elif 'qualifier' in field and type(field['qualifier']) == list:
+                for name in field['qualifier']:
+                    self.add_global_qualifier(name=name)
             else:
-                self.add_global_field(name=field['mamber'])
+                self.add_global_field(name=field)
         
         # self.add_global_field(field)
 
