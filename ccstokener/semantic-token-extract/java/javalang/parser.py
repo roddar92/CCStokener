@@ -1635,7 +1635,7 @@ class Parser(object):
             case_value = None
 
             if case_type == 'case':
-                if self.would_accept(Identifier, ':'):
+                if self.would_accept(Identifier, ':') or self.would_accept(Identifier, '->'):
                     case_value = self.parse_identifier()
                 else:
                     case_value = self.parse_expression()
@@ -1644,7 +1644,10 @@ class Parser(object):
             elif not case_type == 'default':
                 self.illegal("Expected switch case")
 
-            self.accept(':')
+            if self.tokens.look().value == '->':
+                self.accept('->')
+            else:
+                self.accept(':')
 
             if self.tokens.look().value not in ('case', 'default'):
                 break
@@ -2022,6 +2025,9 @@ class Parser(object):
         elif self.try_accept('void'):
             self.accept('.', 'class')
             return tree.VoidClassReference()
+
+        elif self.would_accept('switch'):
+            return self.parse_statement()
 
         self.illegal("Expected expression")
 
