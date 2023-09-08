@@ -1984,6 +1984,13 @@ class Parser(object):
                 return invocation
 
         elif isinstance(token, Identifier):
+            if self.would_accept(Identifier, '[', ']', '::'):
+                created_name = self.parse_created_name()
+                if self.would_accept('[', ']', '::', 'new'):
+                    rest = self.parse_array_creator_rest()
+                    rest.type = created_name
+                    return rest
+            
             qualified_identifier = [self.parse_identifier()]
 
             while self.would_accept('.', Identifier):
@@ -2152,7 +2159,10 @@ class Parser(object):
 
     @parse_debug
     def parse_array_creator_rest(self):
-        if self.would_accept('[', ']'):
+        if self.would_accept('[', ']', '::', 'new'):
+            self.accept('[', ']', '::', 'new')
+            return tree.ArrayCreator(dimensions=[tree.Literal(value='0')])
+        elif self.would_accept('[', ']'):
             array_dimension = self.parse_array_dimension()
             array_initializer = self.parse_array_initializer()
 
