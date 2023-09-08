@@ -3,9 +3,10 @@ from javalang.ast import Node
 import numpy as np
 import os
 
-from util import RoleType
-from util import NodeType
-from util import *
+from .util import RoleType
+from .util import NodeType
+from .util import *
+
 
 # max_node_size = 10
 # node_to_index = {
@@ -18,7 +19,7 @@ from util import *
 #     'basic_type': 1
 #     , 'refer_type': 2
 #     , 'variable': 3
-    
+
 # }
 
 
@@ -27,17 +28,17 @@ class Token(object):
     role = None
     name = None
     count = 0
-    
+
     def __init__(self):
         self.path = None
         self.role = None
         self.name = None
-    
+
     def __init__(self, name, path, role):
         self.path = path
         self.name = name
         self.role = role
-    
+
     def incre_path(self, path):
         if self.path is None:
             self.path = np.zeros(int(NodeType.NODE_TYPE_END))
@@ -48,52 +49,57 @@ class Token(object):
     def set_path(self, path):
         self.count += 1
         self.path = path
-    
+
     def output(self):
         if self.path is None:
             return []
         return self.path.astype(int).tolist()
-    
+
+
 class Variable(Token):
     def __init__(self, type, name, path=None, window_size=0):
-        self.type = type # 变量类型，如int, float等
+        self.type = type  # 变量类型，如int, float等
         self.role = RoleType.VARIABLE
         self.name = name
         self.related_var = []
 
         if path is None:
-            path= np.zeros(int(NodeType.NODE_TYPE_END))
+            path = np.zeros(int(NodeType.NODE_TYPE_END))
         self.path = path
 
         self.window_index = 0
         self.window_size = window_size
         self.related_var_window = [[] for i in range(0, window_size)]
-    
+
     def add_related_var(self, related_var):
         self.related_var_window[self.window_index] = related_var
-        self.window_index = (self.window_index+1) % self.window_size
-    
+        self.window_index = (self.window_index + 1) % self.window_size
+
     def get_related_var(self):
         related_var = []
         for value in self.related_var_window:
             related_var.extend(value)
         return list(set(related_var))
 
+
 class Relation(Token):
     def __init__(self, name, path=None):
         self.name = name
         self.path = path
         self.role = RoleType.EXPRE_RELATION
-        
+
+
 class FieldAccess(Token):
     def __init__(self, name):
         self.name = name
         self.role = RoleType.FILED
 
+
 class VariableType(Token):
     def __init__(self, name, role):
         self.name = name
         self.role = role
+
 
 class Method(Token):
     def __init__(self, name, path=None):
@@ -101,13 +107,16 @@ class Method(Token):
         self.role = RoleType.METHOD
         self.path = path
 
+
 class Qualifier(Token):
     def __init__(self, name):
         self.name = name
 
+
 class Keyword(Token):
     def __init__(self, name):
         self.name = name
+
 
 class TokenParser(object):
     def __init__(self):
@@ -120,31 +129,31 @@ class TokenParser(object):
 
     def clear(self):
         self.token_map = {}
-        self.cur_path = []              # 单一路径
+        self.cur_path = []  # 单一路径
         # self.recorded_token_map = {}
-        self.global_var_map = {}                # 变量
-        self.global_field_map = {}              # 域访问
-        self.global_type_map = {}               # 类型
-        self.global_method_map = {}             # 函数
-        self.global_qualifier_map = {}          # 类似于多级变量索引, 如a.b.c.d
+        self.global_var_map = {}  # 变量
+        self.global_field_map = {}  # 域访问
+        self.global_type_map = {}  # 类型
+        self.global_method_map = {}  # 函数
+        self.global_qualifier_map = {}  # 类似于多级变量索引, 如a.b.c.d
 
-        self.global_keyword_map = {}          # 关键字
+        self.global_keyword_map = {}  # 关键字
 
-        self.method_start = -1          # 方法的起始行 
-        self.method_end = -1            # 方法的终止行
+        self.method_start = -1  # 方法的起始行
+        self.method_end = -1  # 方法的终止行
 
-        self.valid_token_num = 0        # 有效的token, 如变量，标识符等, 不包含关键字，常量字符串
-        self.total_token_num = 0        # token总数，有效token+无效token，即全部的token
+        self.valid_token_num = 0  # 有效的token, 如变量，标识符等, 不包含关键字，常量字符串
+        self.total_token_num = 0  # token总数，有效token+无效token，即全部的token
 
-        self.union_variable_list = []       # 关联合并的变量
-        self.union_method_list = []         # 关联合并的函数
-        self.union_expre_relation_list = [] # 关系表
-    
+        self.union_variable_list = []  # 关联合并的变量
+        self.union_method_list = []  # 关联合并的函数
+        self.union_expre_relation_list = []  # 关系表
+
     def dump(self):
-        if((self.method_end-self.method_start+1)<6):
+        if (self.method_end - self.method_start + 1) < 6:
             return ""
 
-        dump_str = '<block filePath:{}, startline:{}, endline:{}, validTokenNum:{}, totalTokenNum: {}>\n'   \
+        dump_str = '<block filePath:{}, startline:{}, endline:{}, validTokenNum:{}, totalTokenNum: {}>\n' \
             .format(self.file_path, self.method_start, self.method_end, self.valid_token_num, self.total_token_num)
 
         # 输出variable
@@ -152,40 +161,39 @@ class TokenParser(object):
         for key, value in self.global_var_map.items():
             dump_str += ('{},{}: {}\n'.format(key, value.count, value.output()))
         dump_str += '</variable>\n'
-        
-        
-        dump_str += ('<field>\n')
+
+        dump_str += '<field>\n'
         for key, value in self.global_field_map.items():
             # dump_str += ('{}: {}\n'.format(key, value.output()))
             dump_str += ('{},{}: {}\n'.format(key, value.count, value.output()))
-        dump_str += ('</field>\n')
-        
-        dump_str += ('<method>\n')
+        dump_str += '</field>\n'
+
+        dump_str += '<method>\n'
         for key, value in self.global_method_map.items():
             # dump_str += ('{}: {}\n'.format(key, value.output()))
             dump_str += ('{},{}: {}\n'.format(key, value.count, value.output()))
-        dump_str += ('</method>\n')
+        dump_str += '</method>\n'
 
         dump_str += '<keyword>\n'
         for key, value in self.global_keyword_map.items():
             dump_str += ('{},{}: {}\n'.format(key, value.count, value.output()))
         dump_str += '</keyword>\n'
 
-        dump_str += ('<type>\n')
+        dump_str += '<type>\n'
         for key, value in self.global_type_map.items():
             if value.role == RoleType.BASIC_TYPE:
                 continue
             dump_str += ('{},{}: {}\n'.format(key, value.count, value.output()))
             # dump_str += ('{}: {}\n'.format(key, value.output()))
-        dump_str += ('</type>\n')
+        dump_str += '</type>\n'
 
-        dump_str += ('<basic type>\n')
+        dump_str += '<basic type>\n'
         for key, value in self.global_type_map.items():
             if value.role != RoleType.BASIC_TYPE:
                 continue
             dump_str += ('{},{}: {}\n'.format(key, value.count, value.output()))
             # dump_str += ('{}: {}\n'.format(key, value.output()))
-        dump_str += ('</basic type>\n')
+        dump_str += '</basic type>\n'
 
         dump_str += '<variable group>\n'
         for obj in self.union_variable_list:
@@ -201,15 +209,13 @@ class TokenParser(object):
         for obj in self.union_expre_relation_list:
             dump_str += '{},1: {}\n'.format(obj.name, obj.output())
         dump_str += '</relation>\n'
-
-
         dump_str += '</block>\n'
 
         return dump_str
 
     def logger(self, log_type, log_msg, log_obj=1):
         if log_obj is None:
-            return 
+            return
 
         print(log_msg)
         if log_type == 'debug':
@@ -219,10 +225,9 @@ class TokenParser(object):
         else:
             exit(1)
 
-    
     def add_global_variable(self, name, type=None):
         if name is None or name == '':
-            return 
+            return
         self.valid_token_num += 1
         self.total_token_num += 1
 
@@ -231,7 +236,7 @@ class TokenParser(object):
 
         if type is not None:
             self.global_var_map[name].type = type
-            
+
         # self.global_var_map[name].incre_path(self.rearrange_path(self.cur_path))
         self.global_var_map[name].set_path(self.rearrange_path(self.cur_path))
 
@@ -239,27 +244,27 @@ class TokenParser(object):
 
     def add_global_field(self, name):
         if name is None or name == '':
-            return 
+            return
         self.valid_token_num += 1
         self.total_token_num += 1
 
         self.record_token('field: {}'.format(name))
-        
+
         if name not in self.global_field_map.keys():
             self.global_field_map[name] = FieldAccess(name=name)
-        
-        self.global_field_map[name].incre_path(self.rearrange_path(self.cur_path)) 
+
+        self.global_field_map[name].incre_path(self.rearrange_path(self.cur_path))
 
     def add_global_identifier(self, name):
         if name is None or name == '':
-            return 
+            return
         self.total_token_num += 1
 
         self.record_token('identifier: {}'.format(name))
 
     def add_global_type(self, name, role):
         if name is None or name == '':
-            return 
+            return
         self.valid_token_num += 1
         self.total_token_num += 1
 
@@ -267,12 +272,11 @@ class TokenParser(object):
 
         if name not in self.global_type_map.keys():
             self.global_type_map[name] = VariableType(name=name, role=role)
-        self.global_type_map[name].incre_path(self.rearrange_path(self.cur_path)) 
-        
+        self.global_type_map[name].incre_path(self.rearrange_path(self.cur_path))
 
     def add_global_method(self, name):
         if name is None or name == '':
-            return 
+            return
         self.valid_token_num += 1
         self.total_token_num += 1
 
@@ -280,12 +284,13 @@ class TokenParser(object):
 
         if name not in self.global_method_map.keys():
             self.global_method_map[name] = Method(name=name)
-        self.global_method_map[name].incre_path(self.rearrange_path(self.cur_path)) 
+        self.global_method_map[name].incre_path(self.rearrange_path(self.cur_path))
 
-    # 将修饰符作为变量直接操作
+        # 将修饰符作为变量直接操作
+
     def add_global_qualifier(self, name):
         if name is None or name == '':
-            return 
+            return
 
         self.add_global_variable(name=name)
         self.add_union_variable(name)
@@ -295,12 +300,12 @@ class TokenParser(object):
 
         # if name not in self.global_qualifier_map.keys():
         #     self.global_qualifier_map[name] = Qualifier(name=name)
-            
+
     def add_global_modifier(self, name):
         if name is None or name == '':
-            return 
+            return
 
-        if type(name)==list:
+        if type(name) == list:
             for modi in name:
                 self.add_single_modifier(modi)
         else:
@@ -313,7 +318,7 @@ class TokenParser(object):
 
     def add_global_keyword(self, name):
         if name is None or name == '':
-            return 
+            return
         self.total_token_num += 1
         self.valid_token_num += 1
 
@@ -333,7 +338,7 @@ class TokenParser(object):
         #     path_np[0] += 1
 
         return path_np
-    
+
     def add_token(self, name, role, path):
         path = self.rearrange_path(path)
         if name in self.token_map.keys():
@@ -353,30 +358,30 @@ class TokenParser(object):
         related_var_dict = self.get_related_var(name_arr, self.window_size)
 
         # print('relation: {}, relate: {}'.format(name_arr, related_var_dict))
-        
+
         # 获取收集的向量和
         for node, cnt in related_var_dict.items():
             if node not in self.global_var_map.keys():
                 continue
             cur_path_np += self.global_var_map[node].path
 
-        self.union_expre_relation_list.append(Relation(name='-'.join(name_arr), path=cur_path_np)) 
+        self.union_expre_relation_list.append(Relation(name='-'.join(name_arr), path=cur_path_np))
         self.record_token('relation: {}, path: {}'.format(name_arr, cur_path_np))
 
     def add_union_variable(self, name, related_group=None):
-        if(name is None or type(name) != str):
-            return 
-        
-        # 获取当前路径的信息
+        if name is None or type(name) != str:
+            return
+
+            # 获取当前路径的信息
         cur_path_np = self.rearrange_path(self.cur_path)
 
         if related_group is None or 'member' not in related_group.keys():
             # 如果不存在关联变量，则只记录当前路径信息
             self.union_variable_list.append(Variable(type=None, name=name, path=cur_path_np))
             # print('var: {}, relate: {}'.format(name, None))
-            return 
-        
-        related_var_dict = self.get_related_var(related_group['member'], self.window_size)        
+            return
+
+        related_var_dict = self.get_related_var(related_group['member'], self.window_size)
 
         # print('var: {}, relate: {}'.format(name, related_var_dict))
         name_arr = [name]
@@ -390,7 +395,7 @@ class TokenParser(object):
             name_arr.append(node)
         #     print(node, end=', ')
         # print('\n-------------------\n')
-        
+
         # 记录收集的向量和
         self.union_variable_list.append(Variable(type=None, name="-".join(name_arr), path=cur_path_np))
 
@@ -409,8 +414,8 @@ class TokenParser(object):
             self.union_method_list.append(Method(name=name, path=cur_path_np))
 
             # print('method: {}, relate: {}'.format(name, None))
-            return 
-        related_var_dict = self.get_related_var(related_group['member'], self.window_size)        
+            return
+        related_var_dict = self.get_related_var(related_group['member'], self.window_size)
 
         # print('method: {}, relate: {}'.format(name, related_var_dict))
         name_arr = [name]
@@ -421,13 +426,12 @@ class TokenParser(object):
                 continue
             cur_path_np += self.global_var_map[node].path
             name_arr.append(node)
-        
+
         # 记录收集的向量和
         self.union_method_list.append(Method(name="-".join(name_arr), path=cur_path_np))
-        
-        
+
     def get_related_var(self, related_var_list, depth):
-        if(depth == 0):
+        if depth == 0:
             return {}
 
         ret_var_map = {}
@@ -442,13 +446,13 @@ class TokenParser(object):
 
             cur_var_list = self.global_var_map[var].get_related_var()
             # 获取候选列表的cnt
-            next_var_map = self.get_related_var(cur_var_list, depth-1)
+            next_var_map = self.get_related_var(cur_var_list, depth - 1)
             for key, value in next_var_map.items():
                 if key not in ret_var_map.keys():
                     ret_var_map[key] = value
                 else:
                     ret_var_map[key] += value
-                    
+
         return ret_var_map
 
     def record_token(self, name):
@@ -477,9 +481,9 @@ class TokenParser(object):
         #     self.cur_path.pop()
         node_name = self.transform_node(node_name)
         if len(self.cur_path) == 0:
-            return 
+            return
         self.cur_path.pop()
-    
+
     def transform_node(self, origin_node):
         # return origin_node
         if origin_node == NodeType.DO_BODY:
@@ -496,16 +500,15 @@ class TokenParser(object):
             return NodeType.LOOP_CONDITION
         return origin_node
 
-    
     def parse(self, obj, file_path, opt_file_path):
         if obj is None:
-            return 
+            return
 
         self.file_path = file_path
         self.opt_file_path = opt_file_path
 
         if isinstance(obj, tree.CompilationUnit):
-            return self.parse_tree_compilation_unit(obj) 
+            return self.parse_tree_compilation_unit(obj)
         elif isinstance(obj, tree.Declaration):
             return self.parse_tree_declaration(obj)
         elif isinstance(obj, tree.Statement):
@@ -541,7 +544,7 @@ class TokenParser(object):
     def parse_block(self, body):
         if body is None or type(body) != list:
             self.logger('error', 'error input for [parse block]: [{}]'.format(body), body)
-            return 
+            return
 
         for body_item in body:
             self.parse_block_statement(body_item)
@@ -561,7 +564,7 @@ class TokenParser(object):
             self.parse_tree_statement(body)
         else:
             self.logger('debug', 'unknown body type {}'.format(body))
-            
+
     # def parse_statement(self, statement):
     #     if isinstance(statement, tree.TryStatement):
     #         self.parse_tree_try_statement(statement)
@@ -608,8 +611,8 @@ class TokenParser(object):
     #         self.parse_catches(try_statement.catches)
     #     if hasattr(try_statement, 'finally_block') and try_statement.finally_block is not None:
     #         self.parse_block(try_statement.finally_block)
-        # else:
-        #     self.logger('debug', 'unknown try statement {}'.format(try_statement))
+    # else:
+    #     self.logger('debug', 'unknown try statement {}'.format(try_statement))
 
     # def parse_resource(self, resource):
     #     if not isinstance(resource, tree.TryResource):
@@ -638,13 +641,13 @@ class TokenParser(object):
     #             self.add_token(type, 'refer_type', self.cur_path)
     #     if hasattr(catch_parameter, 'name') and catch_parameter.name is not None:
     #         self.add_token(catch_parameter.name, 'variable', self.cur_path)
-    
+
     def parse_expression(self, expression):
         if isinstance(expression, tree.Assignment):
             return self.parse_tree_assignment(expression)
         else:
             return self.parse_expressionl(expression)
-        
+
     def parse_expressionl(self, expression):
         if isinstance(expression, tree.TernaryExpression):
             return self.parse_tree_ternary_expression(expression)
@@ -659,7 +662,7 @@ class TokenParser(object):
         if isinstance(expression, tree.BinaryOperation):
             return self.parse_tree_binary_operation(expression)
         else:
-            return self.parse_expression_3(expression)            
+            return self.parse_expression_3(expression)
 
     def parse_expression_3(self, expression):
         if isinstance(expression, tree.Cast):
@@ -676,7 +679,7 @@ class TokenParser(object):
 
         if isinstance(expression, tree.Literal):
             self.add_global_identifier(expression.value)
-            pass   # 常量值，或字符串类型
+            pass  # 常量值，或字符串类型
         elif isinstance(expression, tree.ExplicitConstructorInvocation):
             return self.parse_tree_explicit_constructor_invocation(expression)
         elif isinstance(expression, tree.This):
@@ -750,7 +753,6 @@ class TokenParser(object):
             for decl in obj.types:
                 self.parse_tree_declaration(decl)
 
-
     def parse_tree_import(self, obj):
         self.log_node('[tree import]')
 
@@ -765,7 +767,7 @@ class TokenParser(object):
         self.log_node('[tree declaration]')
 
         self.add_global_modifier(self.unpack_modifier(self.parse_inner_modifiers(obj.modifiers)))
-        
+
         if isinstance(obj, tree.TypeDeclaration):
             return self.parse_tree_type_declaration(obj)
         elif isinstance(obj, tree.PackageDeclaration):
@@ -795,7 +797,8 @@ class TokenParser(object):
         # todo
         # if not isinstance(obj, tree.Declaration):
         #     return 
-        # elif 
+        # elif
+
     def parse_tree_type_declaration(self, obj):
         if obj is None or not isinstance(obj, tree.TypeDeclaration):
             self.logger('error', 'error input for [tree type declaration]: [{}]'.format(obj), obj)
@@ -812,7 +815,7 @@ class TokenParser(object):
             return self.parse_tree_annotation_declaration(obj)
         else:
             self.logger('debug', 'unknown [parse tree type declaration]: {}'.format(obj))
-            
+
     def parse_tree_package_declaration(self, obj):
         self.log_node('[tree package declaration]')
         pass
@@ -832,9 +835,9 @@ class TokenParser(object):
         if obj.implements is not None:
             for impl in obj.implements:
                 self.add_global_type(self.unpack_type(self.parse_tree_type(impl)), RoleType.REFERENCE_TYPE)
-        
+
         self.parse_inner_class_body(obj.body)
-        
+
     def parse_tree_enum_declaration(self, obj):
         if obj is None or not isinstance(obj, tree.EnumDeclaration):
             self.logger('error', 'error input for [tree enum declaration]: [{}]'.format(obj), obj)
@@ -845,7 +848,7 @@ class TokenParser(object):
 
         self.add_global_type(obj.name, RoleType.REFERENCE_TYPE)
         self.parse_inner_enum_body(obj.body)
-        
+
     def parse_tree_interface_declaration(self, obj):
         if obj is None or not isinstance(obj, tree.InterfaceDeclaration):
             self.logger('error', 'error input for [tree interface declaration]: [{}]'.format(obj), obj)
@@ -857,7 +860,7 @@ class TokenParser(object):
         self.add_global_type(obj.name, RoleType.REFERENCE_TYPE)
         self.parse_inner_type_parameters(obj.type_parameters)
         self.parse_inner_class_body(obj.body)
-        
+
     def parse_tree_annotation_declaration(self, obj):
         if obj is None or not isinstance(obj, tree.AnnotationDeclaration):
             self.logger('error', 'error input for [tree annotation declaration]: [{}]'.format(obj), obj)
@@ -867,11 +870,11 @@ class TokenParser(object):
         self.add_global_type(obj.name, RoleType.REFERENCE_TYPE)
         self.parse_inner_annotation_type_body(obj.body)
 
-# ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     def parse_tree_type(self, obj):
         if obj is None or not isinstance(obj, tree.Type):
             self.logger('error', 'error input for [tree type]: [{}]'.format(obj), obj)
-            return 
+            return
         self.log_node('[tree type]')
 
         if isinstance(obj, tree.BasicType):
@@ -892,7 +895,7 @@ class TokenParser(object):
         # self.record_token(obj.name)
 
         return {'type_name': obj.name, 'type': RoleType.BASIC_TYPE}
-        
+
     def parse_tree_reference_type(self, obj):
         if type(obj) != tree.ReferenceType:
             self.logger('error', 'error input for [tree reference type]: [{}]'.format(obj), obj)
@@ -905,7 +908,7 @@ class TokenParser(object):
         self.parse_inner_nonwildcard_type_arguments(obj.arguments)
 
         return {'type_name': obj.name, 'type': RoleType.REFERENCE_TYPE}
-    
+
     def parse_tree_type_argument(self, obj):
         if type(obj) != tree.TypeArgument:
             self.logger('error', 'error input for [tree type argument]: [{}]'.format(obj), obj)
@@ -914,7 +917,7 @@ class TokenParser(object):
 
         return self.parse_tree_type(obj.type)
 
-# ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     def parse_tree_type_parameter(self, obj):
         if obj is None or not isinstance(obj, tree.TypeParameter):
             self.logger('error', 'error input for [tree type parameter]: [{}]'.format(obj), obj)
@@ -931,7 +934,7 @@ class TokenParser(object):
 
         return {'type': [obj.name], 'extends': extends_list}
 
-# ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     def parse_tree_annnotation(self, obj):
         self.log_node('[tree annotation]')
         pass
@@ -949,7 +952,8 @@ class TokenParser(object):
         if obj.values is not None:
             for value in obj.values:
                 self.parse_element_value(value)
-# ------------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------------
     def parse_tree_member(self, obj):
         self.log_node('[tree member]')
         pass
@@ -990,7 +994,7 @@ class TokenParser(object):
             with open(self.opt_file_path, 'a+') as fileOut:
                 fileOut.write(self.dump())
             self.clear()
-        
+
     def parse_tree_field_declaration(self, obj):
         if obj is None or not isinstance(obj, tree.FieldDeclaration):
             self.logger('error', 'error input for [tree field declaration]: [{}]'.format(obj), obj)
@@ -1007,7 +1011,6 @@ class TokenParser(object):
             for decl in obj.declarators:
                 self.parse_tree_variable_declarator(decl)
 
-            
     def parse_tree_constructor_declaration(self, obj):
         if obj is None or not isinstance(obj, tree.ConstructorDeclaration):
             self.logger('error', 'error input for [parse tree constructor declaration]: [{}]'.format(obj), obj)
@@ -1021,7 +1024,7 @@ class TokenParser(object):
             if obj.end_position is not None:
                 self.method_end = obj.end_position[0]
         self.method_depth += 1
-        
+
         self.push_node(NodeType.METHOD_DECLARATION)
 
         self.parse_inner_type_parameters(obj.type_parameters)
@@ -1040,7 +1043,7 @@ class TokenParser(object):
                 fileOut.write(self.dump())
             self.clear()
 
-# ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     def parse_tree_constant_declaration(self, obj):
         if obj is None or not isinstance(obj, tree.ConstantDeclaration):
             self.logger('error', 'error input for [tree constant declaration]: [{}]'.format(obj), obj)
@@ -1053,7 +1056,7 @@ class TokenParser(object):
         if obj.declarators is not None:
             for decl in obj.declarators:
                 self.parse_tree_variable_declarator(decl)
-    
+
     def parse_tree_array_initializer(self, obj):
         if obj is None or not isinstance(obj, tree.ArrayInitializer):
             self.logger('error', 'error input for [tree array initializer]: [{}]'.format(obj), obj)
@@ -1066,7 +1069,7 @@ class TokenParser(object):
             for initializer in obj.initializers:
                 if initializer == None:
                     continue
-                cur_init = self.parse_inner_variable_initializer(initializer)            
+                cur_init = self.parse_inner_variable_initializer(initializer)
                 init_list.append(cur_init)
 
         return merge_dict(init_list)
@@ -1081,7 +1084,7 @@ class TokenParser(object):
         if isinstance(obj, tree.LocalVariableDeclaration):
             return self.parse_tree_local_variable_declaration(obj)
         # else:
-            # self.logger('debug', 'unknown [parse tree varaible declaration]: {}'.format(obj))
+        # self.logger('debug', 'unknown [parse tree varaible declaration]: {}'.format(obj))
         type_dict = self.parse_tree_type(obj.type)
         var_type = None
         if type_dict is not None:
@@ -1093,7 +1096,6 @@ class TokenParser(object):
                 # 涉及到数据依赖关系
                 decla_dict = self.parse_tree_variable_declarator(decl)
                 self.add_global_variable(decla_dict['var_name'], var_type)
-        
 
     def parse_tree_local_variable_declaration(self, obj):
         if obj is None or type(obj) != tree.LocalVariableDeclaration:
@@ -1123,11 +1125,11 @@ class TokenParser(object):
     def parse_tree_variable_declarator(self, obj):
         if obj is None or type(obj) != tree.VariableDeclarator:
             self.logger('error', 'error input for [tree variable declarator]: [{}]'.format(obj), obj)
-            return 
+            return
         self.log_node('[tree variable declarator]')
 
         # assign action
-        
+
         # self.add_global_variable(obj.name)
         var_name = obj.name
         initializer = obj.initializer
@@ -1152,8 +1154,7 @@ class TokenParser(object):
             return self.parse_tree_expression(initializer)
         else:
             self.logger('debug', 'unknown [parse tree variable declarator]->[initializer]: {}'.format(initializer))
-        
-        
+
     def parse_tree_formal_parameter(self, obj):
         if obj is None or not isinstance(obj, tree.FormalParameter):
             self.logger('error', 'error input for [tree formal parameter]: [{}]'.format(obj), obj)
@@ -1165,7 +1166,7 @@ class TokenParser(object):
 
         self.add_global_variable(var_name, self.unpack_type(var_type))
         self.add_union_variable(var_name)
-        
+
         return merge_dict({'member': [var_name]}, var_type)
 
     def parse_tree_inferred_formal_parameter(self, obj):
@@ -1179,7 +1180,7 @@ class TokenParser(object):
 
         return {'member': [obj.name]}
 
-# ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     def parse_tree_statement(self, obj):
         if obj is None or not isinstance(obj, tree.Statement):
             self.logger('error', 'error input for [parse tree statement]: [{}]'.format(obj), obj)
@@ -1217,10 +1218,10 @@ class TokenParser(object):
         elif isinstance(obj, tree.CatchClause):
             return self.parse_tree_catch_clause(obj)
         elif type(obj) == tree.Statement:
-            pass    # 空表达式
+            pass  # 空表达式
         else:
             self.logger('debug', 'unknown [parse tree statement]: {}'.format(obj), obj)
-        
+
     def parse_tree_if_statement(self, obj):
         if obj is None or not isinstance(obj, tree.IfStatement):
             self.logger('error', 'error input for [tree if statement]: [{}]'.format(obj), obj)
@@ -1239,23 +1240,21 @@ class TokenParser(object):
 
         self.parse_expression(obj.else_statement)
 
-        
     def parse_tree_while_statement(self, obj):
         if obj is None or not isinstance(obj, tree.WhileStatement):
             self.logger('error', 'error input for [tree while statement]: [{}]'.format(obj), obj)
             return None
         self.log_node('[tree while statement]')
-        
+
         self.add_global_keyword('loop')
 
-        self.push_node(NodeType.WHILE_CONDITION)        
+        self.push_node(NodeType.WHILE_CONDITION)
         self.parse_expression(obj.condition)
         self.pop_node(NodeType.WHILE_CONDITION)
 
         self.push_node(NodeType.WHILE_BODY)
         self.parse_tree_statement(obj.body)
         self.pop_node(NodeType.WHILE_BODY)
-
 
     def parse_tree_do_statement(self, obj):
         if obj is None or not isinstance(obj, tree.DoStatement):
@@ -1272,8 +1271,7 @@ class TokenParser(object):
         self.push_node(NodeType.DO_CONDITION)
         self.parse_expression(obj.condition)
         self.pop_node(NodeType.DO_CONDITION)
-        
-        
+
     def parse_tree_for_statement(self, obj):
         if obj is None or not isinstance(obj, tree.ForStatement):
             self.logger('error', 'error input for [tree for statement]: [{}]'.format(obj), obj)
@@ -1288,11 +1286,10 @@ class TokenParser(object):
                 self.parse_tree_for_control(for_control)
             elif isinstance(for_control, tree.EnhancedForControl):
                 self.parse_tree_enhanced_for_control(for_control)
-        
+
         self.push_node(NodeType.FOR_BODY)
         self.parse_tree_statement(obj.body)
         self.pop_node(NodeType.FOR_BODY)
-        
 
     def parse_tree_assert_statement(self, obj):
         if obj is None or not isinstance(obj, tree.AssertStatement):
@@ -1302,7 +1299,7 @@ class TokenParser(object):
 
         self.add_global_keyword('assert')
 
-        self.push_node(NodeType.ASSERT_CONDITION)        
+        self.push_node(NodeType.ASSERT_CONDITION)
         self.parse_expression(obj.condition)
         self.pop_node(NodeType.ASSERT_CONDITION)
 
@@ -1310,14 +1307,13 @@ class TokenParser(object):
         self.parse_expression(obj.value)
         self.pop_node(NodeType.ASSERT_BODY)
 
-                
     def parse_tree_break_statement(self, obj):
         self.log_node('[tree break statement]')
 
         self.add_global_keyword('break')
 
         pass
-    
+
     def parse_tree_continue_statement(self, obj):
         self.log_node('[tree continue statement]')
 
@@ -1336,8 +1332,7 @@ class TokenParser(object):
         self.push_node(NodeType.RETURN)
         self.parse_expression(obj.expression)
         self.pop_node(NodeType.RETURN)
-        
-        
+
     def parse_tree_throw_statement(self, obj):
         if obj is None or not isinstance(obj, tree.ThrowStatement):
             self.logger('error', 'error input for [tree throw statement]: [{}]'.format(obj), obj)
@@ -1350,7 +1345,6 @@ class TokenParser(object):
         self.parse_expression(obj.expression)
         self.pop_node(NodeType.THROW)
 
-        
     def parse_tree_synchronized_statement(self, obj):
         if obj is None or not isinstance(obj, tree.SynchronizedStatement):
             self.logger('error', 'error input for [tree synchronized statement]: [{}]'.format(obj), obj)
@@ -1366,8 +1360,7 @@ class TokenParser(object):
         self.push_node(NodeType.SYNCHRONIZED_BODY)
         self.parse_block(obj.block)
         self.pop_node(NodeType.SYNCHRONIZED_BODY)
-        
-        
+
     def parse_tree_try_statement(self, obj):
         if obj is None or not isinstance(obj, tree.TryStatement):
             self.logger('error', 'error input for [tree try statement]: [{}]'.format(obj), obj)
@@ -1380,7 +1373,7 @@ class TokenParser(object):
         if resources is not None:
             for resource in resources:
                 self.parse_tree_try_resource(resource)
-            
+
         self.push_node(NodeType.TRY_BODY)
         self.parse_block(obj.block)
         self.pop_node(NodeType.TRY_BODY)
@@ -1395,7 +1388,7 @@ class TokenParser(object):
         self.push_node(NodeType.FINALLY_BODY)
         self.parse_block(obj.finally_block)
         self.pop_node(NodeType.FINALLY_BODY)
-        
+
     def parse_tree_switch_statement(self, obj):
         if obj is None or not isinstance(obj, tree.SwitchStatement):
             self.logger('error', 'error input for [tree switch statement]: [{}]'.format(obj), obj)
@@ -1409,7 +1402,7 @@ class TokenParser(object):
         self.pop_node(NodeType.SWITCH_CONDITION)
 
         self.parse_inner_switch_block_groups(obj.cases)
-        
+
     def parse_tree_block_statement(self, obj):
         if obj is None or not isinstance(obj, tree.BlockStatement):
             self.logger('error', 'error input for [tree block statement]: [{}]'.format(obj), obj)
@@ -1425,8 +1418,8 @@ class TokenParser(object):
         self.log_node('[tree statement expression]')
 
         self.parse_expression(obj.expression)
-    
-# ------------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------------
     def parse_tree_try_resource(self, obj):
         if obj is None or not isinstance(obj, tree.TryResource):
             self.logger('error', 'error input for [tree try resource]: [{}]'.format(obj), obj)
@@ -1446,7 +1439,6 @@ class TokenParser(object):
         # obj.name 与 expre_dict之间存在赋值操作
         self.add_union_variable(obj.name, expre_dict)
 
-        
     def parse_tree_catch_clause(self, obj):
         if obj is None or not isinstance(obj, tree.CatchClause):
             self.logger('error', 'error input for [tree catch clause]: [{}]'.format(obj), obj)
@@ -1460,14 +1452,13 @@ class TokenParser(object):
         # self.push_node(NodeType.CATCH_BODY)
         self.parse_block(obj.block)
         # self.pop_node(NodeType.CATCH_BODY)
-        
 
     def parse_tree_catch_caluse_paramenter(self, obj):
         if obj is None or not isinstance(obj, tree.CatchClauseParameter):
             self.logger('error', 'error input for [tree catch clause parameter]: [{}]'.format(obj), obj)
             return None
         self.log_node('[catch clause parameter]')
-        
+
         types = obj.types
         last_type = None
         if types is not None:
@@ -1477,14 +1468,13 @@ class TokenParser(object):
 
         self.add_global_variable(obj.name, last_type)
         self.add_union_variable(obj.name)
-       
-# ------------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------------
     def parse_tree_switch_statement_case(self, obj):
         if obj is None or not isinstance(obj, tree.SwitchStatementCase):
             self.logger('error', 'error input for [tree switch statement case]: [{}]'.format(obj), obj)
             return None
         self.log_node('[tree switch statement case]')
-
 
         self.add_global_keyword('case')
 
@@ -1503,7 +1493,6 @@ class TokenParser(object):
                 self.parse_block_statement(statement)
         self.pop_node(NodeType.CASE_BODY)
 
-        
     def parse_tree_for_control(self, obj):
         if obj is None or not isinstance(obj, tree.ForControl):
             self.logger('error', 'error input for [tree for control]: [{}]'.format(obj), obj)
@@ -1515,16 +1504,16 @@ class TokenParser(object):
         if init is not None:
             if isinstance(init, tree.VariableDeclaration):
                 self.parse_tree_variable_declaration(init)
-            elif type(init)==list:
+            elif type(init) == list:
                 for expre in init:
                     self.parse_expression(expre)
-        
+
         # condition
         condition = obj.condition
         self.push_node(NodeType.FOR_CONDITION)
         self.parse_expression(condition)
         self.pop_node(NodeType.FOR_CONDITION)
-        
+
         # update
         self.push_node(NodeType.FOR_BODY)
         update = obj.update
@@ -1532,14 +1521,13 @@ class TokenParser(object):
             for expre in update:
                 self.parse_expression(expre)
         self.pop_node(NodeType.FOR_BODY)
-        
-        
+
     def parse_tree_enhanced_for_control(self, obj):
         if obj is None or not isinstance(obj, tree.EnhancedForControl):
             self.logger('error', 'error input for [tree enhanced for control]: [{}]'.format(obj), obj)
             return None
         self.log_node('[tree enhanced for control]')
-        
+
         self.push_node(NodeType.FOR_CONDITION)
         self.parse_tree_variable_declaration(obj.var)
         self.pop_node(NodeType.FOR_CONDITION)
@@ -1548,8 +1536,7 @@ class TokenParser(object):
         self.parse_expression(obj.iterable)
         self.pop_node(NodeType.FOR_BODY)
 
-    
-# ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     def parse_tree_expression(self, obj):
         return self.parse_expression(obj)
         # if type(obj)==tree.Assignment:
@@ -1588,14 +1575,13 @@ class TokenParser(object):
         # print('expre left: {}'.format(expressionl))
         # print('expre right: {}'.format(value))
         # exit(0)
-        if expressionl is not None and type(expressionl)==dict \
-            and 'member' in expressionl.keys() and value is not None and 'member' in value.keys():
+        if expressionl is not None and type(expressionl) == dict \
+                and 'member' in expressionl.keys() and value is not None and 'member' in value.keys():
             for member in expressionl['member']:
                 self.add_union_variable(member, value)
-        
-        return {'left': expressionl, 'right': value, 
-                'member': transfor_to_array(expressionl, value)}
 
+        return {'left': expressionl, 'right': value,
+                'member': transfor_to_array(expressionl, value)}
 
     # 条件表达式
     # parse_exressionl:1776        
@@ -1611,10 +1597,9 @@ class TokenParser(object):
         if_false = self.parse_expressionl(obj.if_false)
         self.pop_node(NodeType.EXPRE_TERNARY)
 
-        return {'condition': condition, 'value': transfor_to_array(if_true, if_false), 
+        return {'condition': condition, 'value': transfor_to_array(if_true, if_false),
                 'member': transfor_to_array(condition, if_true, if_false)}
-    
-        
+
     def parse_tree_binary_operation(self, obj):
         if obj is None or type(obj) != tree.BinaryOperation:
             self.logger('error', 'error input for [tree binary operation]: [{}]'.format(obj), obj)
@@ -1639,7 +1624,7 @@ class TokenParser(object):
         # print('member: {}, oper: {}'.format(member_arr, oper_type))
 
         return {'member': transfor_to_array(oper_left, oper_right)}
-        
+
     # ‘把’表达式：用于强制类型转换
     # 返回表达式的值 (包含变量等)
     def pares_tree_cast(self, obj):
@@ -1649,9 +1634,10 @@ class TokenParser(object):
         self.log_node('[tree cast]')
 
         cast_type = self.parse_tree_type(obj.type)
-        return self.parse_expression_3(obj.expression) 
+        return self.parse_expression_3(obj.expression)
 
-    # method reference 不返回值
+        # method reference 不返回值
+
     # 因为没有变量
     def parse_tree_method_reference(self, obj):
         if obj is None or type(obj) != tree.MethodReference:
@@ -1665,16 +1651,16 @@ class TokenParser(object):
         if isinstance(obj.expression, tree.ClassReference):
             var_name = obj.expression.type.name
             self.add_global_field(name=var_name)
-        elif field: # field may be empty due to `this` identifier of any literal, i.e `this::someMethod` syntax
+        elif field:  # field may be empty due to `this` identifier of any literal, i.e `this::someMethod` syntax
             if 'member' in field and type(field['member']) == list:
                 for name in field['member']:
                     self.add_global_field(name=name)
             elif 'qualifier' in field and type(field['qualifier']) == list:
                 for name in field['qualifier']:
-                    self.add_global_qualifier(name=name)
+                    self.add_global_field(name=name)  # self.add_global_qualifier(name=name)
             else:
                 self.add_global_field(name=field)
-        
+
         # self.add_global_field(field)
 
         method = obj.method
@@ -1686,12 +1672,11 @@ class TokenParser(object):
                 # 表达式, 可能存在赋值等操作
                 return self.parse_expression(method)
             else:
-                self.logger('debug', 'unknown [parse tree method reference]-->[obj.method]: [{}]'.format(method), method)
+                self.logger('debug', 'unknown [parse tree method reference]-->[obj.method]: [{}]'.format(method),
+                            method)
 
         self.parse_inner_nonwildcard_type_arguments(obj.type_arguments)
 
-        
-    
     # lambda 表达式不设置返回值
     # 无法从返回值中分析数据依赖行为，所以不设置返回值
     def parse_tree_lambda_expression(self, obj):
@@ -1712,24 +1697,24 @@ class TokenParser(object):
                     self.parse_tree_formal_parameter(param)
                 else:
                     self.parse_expression_2(param)
-        
-        self.parse_inner_lambda_method_body(obj.body)
 
+        self.parse_inner_lambda_method_body(obj.body)
         self.pop_node(NodeType.EXPRE_LAMBDA)
-    
-    
-# ------------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------------
     def parse_tree_primary(self, obj):
         pass
+
     def parse_tree_literal(self, obj):
         pass
+
     def parse_tree_this(self, obj):
         if obj is None or not isinstance(obj, tree.This):
             self.logger('error', 'error input for [tree this]: [{}]'.format(obj), obj)
             return None
         self.log_node('[tree this]')
         return self.parse_inner_primary(obj)
-            
+
     def parse_tree_member_reference(self, obj):
         if obj is None or type(obj) != tree.MemberReference:
             self.logger('error', 'error input for [tree member reference]: [{}]'.format(obj), obj)
@@ -1741,7 +1726,7 @@ class TokenParser(object):
         selector = self.parse_inner_primary(obj)
         if selector is not None and 'selector' in selector.keys():
             self.push_node(NodeType.ARRAY_SELECTOR)
-        
+
         # 如果存在qualifier，则可能是qualifier.member(及a.b)的形式，需要将member设置为qulifier，将旧的member当成method token对待，作为static token
         if selector is not None and 'qualifier' in selector.keys():
             self.add_global_method(obj.member)
@@ -1756,8 +1741,7 @@ class TokenParser(object):
         if selector is not None and 'selector' in selector.keys():
             self.pop_node(NodeType.ARRAY_SELECTOR)
 
-
-        return {'member': [member] }
+        return {'member': [member]}
 
     def parse_tree_invocation(self, obj):
         if obj is None or not isinstance(obj, tree.Invocation):
@@ -1793,9 +1777,8 @@ class TokenParser(object):
         self.pop_node(NodeType.INVOCATION_CONSTRUCTOR)
 
         self.add_union_method('this', arg_dict)
-
         return arg_dict
-     
+
     def parse_tree_supter_constructor_invocation(self, obj):
         if obj is None or type(obj) != tree.SuperConstructorInvocation:
             self.logger('error', 'error input for [tree super constructor invocation]: [{}]'.format(obj), obj)
@@ -1805,7 +1788,7 @@ class TokenParser(object):
         self.push_node(NodeType.INVOCATION_CONSTRUCTOR)
 
         self.parse_inner_primary(obj)
-        self.parse_inner_nonwildcard_type_arguments(obj.type_arguments) 
+        self.parse_inner_nonwildcard_type_arguments(obj.type_arguments)
 
         exp_list = self.parse_inner_arguments(obj.arguments)
         arg_dict = merge_dict(exp_list)
@@ -1813,9 +1796,8 @@ class TokenParser(object):
         self.pop_node(NodeType.INVOCATION_CONSTRUCTOR)
 
         self.add_union_method('super', arg_dict)
-
         return arg_dict
-        
+
     def parse_tree_method_invocation(self, obj):
         if obj is None or type(obj) != tree.MethodInvocation:
             self.logger('error', 'error input for [tree method invocation]: [{}]'.format(obj), obj)
@@ -1824,7 +1806,7 @@ class TokenParser(object):
 
         self.push_node(NodeType.INVOCATION_METHOD)
         primary = self.parse_inner_primary(obj)
-        
+
         self.parse_inner_nonwildcard_type_arguments(obj.type_arguments)
 
         self.add_global_method(obj.member)
@@ -1833,7 +1815,7 @@ class TokenParser(object):
         arg_dict_l = merge_dict(arg_list)
 
         # 函数调用时，如果主对象与参数存在调用行为，则添加绑定
-        if(arg_dict_l != None and 'member' in arg_dict_l.keys()):
+        if arg_dict_l is not None and 'member' in arg_dict_l.keys():
             self.add_union_variable(self.unpack_member(primary), arg_dict_l)
 
         arg_dict = merge_dict(arg_list, primary)
@@ -1842,10 +1824,8 @@ class TokenParser(object):
 
         # 记录method的窗口收集数据
         self.add_union_method(obj.member, arg_dict)
-
-        
         return arg_dict
-        
+
     def parse_tree_super_method_invocation(self, obj):
         if obj is None or type(obj) != tree.SuperMethodInvocation:
             self.logger('error', 'error input for [tree super method invocation]: [{}]'.format(obj), obj)
@@ -1855,7 +1835,7 @@ class TokenParser(object):
         self.push_node(NodeType.INVOCATION_METHOD)
         self.parse_inner_primary(obj)
 
-        self.parse_inner_nonwildcard_type_arguments(obj.type_arguments) 
+        self.parse_inner_nonwildcard_type_arguments(obj.type_arguments)
 
         self.add_global_method(obj.member)
 
@@ -1867,7 +1847,7 @@ class TokenParser(object):
         #     for expression in obj.arguments:
         #         cur_dict = self.parse_expression(expression)
         #         member_dict = merge_dict(member_dict, cur_dict)
-        
+
         self.pop_node(NodeType.INVOCATION_METHOD)
 
         # 加入method属性
@@ -1875,9 +1855,8 @@ class TokenParser(object):
 
         # 记录method的窗口收集数据
         self.add_union_method(obj.member, arg_dict)
-
         return arg_dict
-        
+
     def parse_tree_super_member_reference(self, obj):
         if obj is None or type(obj) != tree.SuperMemberReference:
             self.logger('error', 'error input for [tree super member reference]: [{}]'.format(obj), obj)
@@ -1894,11 +1873,9 @@ class TokenParser(object):
         if selector is not None and 'selector' in selector.keys():
             self.pop_node(NodeType.ARRAY_SELECTOR)
 
+        # self.parse_inner_nonwildcard_type_arguments(obj.type_arguments)
+        return {'member': [obj.member]}
 
-        # self.parse_inner_nonwildcard_type_arguments(obj.type_arguments) 
-
-        return {'member': [ obj.member ]}
-        
     def parse_tree_array_selector(self, obj):
         if obj is None or type(obj) != tree.ArraySelector:
             self.logger('error', 'error input for [tree array selector]: [{}]'.format(obj), obj)
@@ -1923,7 +1900,6 @@ class TokenParser(object):
 
         refer = self.parse_tree_type(obj.type)
         self.parse_inner_primary(obj)
-
         return refer
 
     def parse_tree_void_class_reference(self, obj):
@@ -1931,10 +1907,9 @@ class TokenParser(object):
             self.logger('error', 'error input for [tree void class reference]: [{}]'.format(obj), obj)
             return None
         self.log_node('[tree void class reference]')
-            
         self.parse_inner_primary(obj)
-    
-# ------------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------------
     def parse_tree_creator(self, obj):
         if obj is None or not isinstance(obj, tree.Creator):
             self.logger('error', 'error input for [tree creator]: [{}]'.format(obj), obj)
@@ -1962,7 +1937,7 @@ class TokenParser(object):
             for dim in obj.dimensions:
                 if dim is None:
                     continue
-                dim_list.append(self.parse_expression(dim))                
+                dim_list.append(self.parse_expression(dim))
         dim_dict = merge_dict(dim_list)
         initializer = self.parse_tree_array_initializer(obj.initializer)
 
@@ -1971,7 +1946,6 @@ class TokenParser(object):
         self.pop_node(NodeType.CREATOR_ARRAY)
         return merge_dict(dim_dict, initializer)
 
-        
     def parse_tree_class_creator(self, obj):
         if obj is None or type(obj) != tree.ClassCreator:
             self.logger('error', 'error input for [tree class creator]: [{}]'.format(obj), obj)
@@ -1982,30 +1956,28 @@ class TokenParser(object):
 
         self.push_node(NodeType.CREATOR_CLASS)
         self.parse_inner_nonwildcard_type_arguments(obj.constructor_type_arguments)
-        type_dict=self.parse_tree_reference_type(obj.type)
+        type_dict = self.parse_tree_reference_type(obj.type)
         # self.add_global_type(self.unpack_type(type_dict), role=RoleType.REFERENCE_TYPE)
 
         arg_list = self.parse_inner_arguments(obj.arguments)
         self.parse_inner_class_body(obj.body)
         self.pop_node(NodeType.CREATOR_CLASS)
-        
+
         return merge_dict(arg_list)
-        
-        
+
     def parse_tree_inner_class_creator(self, obj):
         if obj is None or type(obj) != tree.InnerClassCreator:
             self.logger('error', 'error input for [tree inner class creator]: [{}]'.format(obj), obj)
             return None
         self.log_node('[tree inner class creator]')
-        
-        self.push_node(NodeType.CREATOR_CLASS) 
+
+        self.push_node(NodeType.CREATOR_CLASS)
         self.parse_tree_reference_type(obj.type)
         arg_list = self.parse_inner_arguments(obj.arguments)
         self.parse_inner_class_body(obj.body)
         self.pop_node(NodeType.CREATOR_CLASS)
 
         return merge_dict(arg_list)
-
 
     def parse_tree_enum_body(self, obj):
         if obj is None or not isinstance(obj, tree.EnumBody):
@@ -2017,9 +1989,8 @@ class TokenParser(object):
         if enum_constants is not None:
             for constant in enum_constants:
                 self.parse_tree_enum_constant_declaration(constant)
-        
-        self.parse_inner_class_body(obj.declarations)
 
+        self.parse_inner_class_body(obj.declarations)
 
     def parse_tree_enum_constant_declaration(self, obj):
         if obj is None or not isinstance(obj, tree.EnumConstantDeclaration):
@@ -2030,7 +2001,7 @@ class TokenParser(object):
         self.add_global_type(obj.name, RoleType.REFERENCE_TYPE)
         self.parse_inner_arguments(obj.arguments)
         self.parse_inner_class_body(obj.body)
-        
+
     def parse_tree_annotation_method(self, obj):
         if obj is None or not isinstance(obj, tree.AnnotationMethod):
             self.logger('error', 'error input for [tree annotation method]: [{}]'.format(obj), obj)
@@ -2042,17 +2013,16 @@ class TokenParser(object):
 
         self.parse_element_value(obj.default)
 
-
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
 
     def parse_inner_expressionl(self, obj):
         return self.parse_expressionl(obj)
 
     def parse_inner_lambda_method_body(self, obj):
         if obj is None:
-            return 
+            return
 
         if isinstance(obj, tree.Expression):
             return self.parse_tree_expression(obj)
@@ -2063,7 +2033,7 @@ class TokenParser(object):
     def parse_inner_nonwildcard_type_arguments(self, obj):
         if obj is None or type(obj) != list:
             return list()
-        
+
         arg_list = list()
         for argument in obj:
             arg_list.append(self.parse_tree_type_argument(argument))
@@ -2077,20 +2047,20 @@ class TokenParser(object):
         for expression in obj:
             exp_list.append(self.parse_expression(expression))
         return exp_list
-    
+
     def parse_inner_class_body(self, obj):
         if obj is None or type(obj) != list:
-            return 
+            return
         for declar in obj:
             if isinstance(declar, tree.Declaration):
                 self.parse_tree_declaration(declar)
             else:
                 self.parse_block(declar)
-    
+
     # 解析primary中的qualifier, 及selector
     def parse_inner_primary(self, obj):
         if obj is None or not isinstance(obj, tree.Primary):
-            return 
+            return
 
         self.add_global_qualifier(obj.qualifier)
 
@@ -2099,8 +2069,8 @@ class TokenParser(object):
 
     def parse_inner_selectors(self, obj):
         if obj is None:
-            return 
-        
+            return
+
         selector_list = []
         for selector in obj:
             if selector is None:
@@ -2110,21 +2080,21 @@ class TokenParser(object):
             elif isinstance(selector, tree.Invocation):
                 selector_list.append(self.parse_tree_invocation(selector))
             elif isinstance(selector, tree.InnerClassCreator):
-                selector_list.append( self.parse_tree_inner_class_creator(selector))
+                selector_list.append(self.parse_tree_inner_class_creator(selector))
             elif isinstance(selector, tree.SuperMemberReference):
-                selector_list.append( self.parse_tree_super_member_reference(selector))
+                selector_list.append(self.parse_tree_super_member_reference(selector))
 
         return merge_dict(selector_list)
-    
+
     def parse_inner_formal_parameters(self, obj):
         param_list = []
-        if obj is None or type(obj)!=list:
+        if obj is None or type(obj) != list:
             return None
         for params in obj:
             param_list.append(self.parse_tree_formal_parameter(params))
 
         return merge_dict(param_list)
-        
+
     def parse_inner_type_parameters(self, obj):
         if obj is None or type(obj) != list:
             return None
@@ -2132,9 +2102,9 @@ class TokenParser(object):
         for type_param in obj:
             param = self.parse_tree_type_parameter(type_param)
             param_list.append(param)
-        
+
         return merge_dict(param_list)
-    
+
     def parse_inner_enum_body(self, obj):
         return self.parse_tree_enum_body(obj)
 
@@ -2145,26 +2115,27 @@ class TokenParser(object):
             if isinstance(element, tree.Declaration):
                 self.parse_tree_declaration(element)
             else:
-                self.logger('debug', 'unknown [parse inner annotation type body]->[for element in body]: {}'.format(element))
+                self.logger('debug',
+                            'unknown [parse inner annotation type body]->[for element in body]: {}'.format(element))
 
     def parse_inner_switch_block_groups(self, obj):
         if obj is None or type(obj) != list:
             return None
         for switch_case in obj:
             self.parse_tree_switch_statement_case(switch_case)
-                
+
     def parse_inner_modifiers(self, obj):
-        if obj is None or (type(obj)!=set and type(obj)!=list):
+        if obj is None or (type(obj) != set and type(obj) != list):
             return None
         modifier_list = []
         for modifier in obj:
             modifier_list.append(modifier)
 
         return {'modifier': modifier_list}
-            
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
 
     def parse_element_value(self, obj):
         if obj is None:
@@ -2178,15 +2149,20 @@ class TokenParser(object):
         else:
             return self.parse_expressionl(obj)
 
-    def unpack_type(self, obj):
+    @staticmethod
+    def unpack_type(obj):
         if obj is None:
             return None
         return obj['type_name']
-    def unpack_modifier(self, obj):
+
+    @staticmethod
+    def unpack_modifier(obj):
         if obj is None:
             return None
         return obj['modifier']
-    def unpack_member(self, obj):
-        if(obj is None or 'member' not in obj.keys()): 
+
+    @staticmethod
+    def unpack_member(obj):
+        if obj is None or 'member' not in obj.keys():
             return None
         return "-".join(obj['member'])

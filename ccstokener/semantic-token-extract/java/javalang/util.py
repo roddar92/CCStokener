@@ -1,5 +1,4 @@
 
-
 class LookAheadIterator(object):
     def __init__(self, iterable):
         self.iterable = iter(iterable)
@@ -36,7 +35,6 @@ class LookAheadIterator(object):
         returned.
 
         """
-
         length = len(self.look_ahead)
 
         if length <= i:
@@ -86,6 +84,7 @@ class LookAheadIterator(object):
         else:
             # If there are not more markers in the stack then discard the values
             pass
+
 
 class LookAheadListIterator(object):
     def __init__(self, iterable):
@@ -162,4 +161,3 @@ class LookAheadListIterator(object):
             self.marker = saved
         elif self.saved_markers:
             self.saved_markers[-1] = saved
-

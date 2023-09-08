@@ -2,7 +2,7 @@ import os
 import sys
 
 if __name__ == '__main__':
-    if(len(sys.argv) != 9 and len(sys.argv)!=7):
+    if len(sys.argv) != 9 and len(sys.argv) != 7:
         print('python runner.py -i /path/to/dataset -m common/bcb -t 0.6 -l c/java')
         exit(0)
     
@@ -12,7 +12,7 @@ if __name__ == '__main__':
     mode = 'common'
     language = 'java'
 
-    for i in [1,3,5,7]:
+    for i in [1, 3, 5, 7]:
         if i >= len(sys.argv):
             break
         if sys.argv[i] == '-i':
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         print('the parameter of \'-m\' should be bcb or common')
         exit(0)
     
-    if len(inputDir)==0 or not os.path.exists(inputDir):
+    if len(inputDir) == 0 or not os.path.exists(inputDir):
         print('input dir not exist: {}'.format(inputDir))
         exit(0)
 
@@ -41,14 +41,15 @@ if __name__ == '__main__':
     if language == 'java':
         os.system('cd semantic-token-extract/java; python parse.py -i %s -o ../../tokens -m %s' % (inputDir, mode))
     elif language == 'c':
-        os.system('cd semantic-token-extract/c; java -jar c-parser.jar -i %s -o ../../tokens' % (inputDir))
+        os.system('cd semantic-token-extract/c; java -jar c-parser.jar -i %s -o ../../tokens' % inputDir)
     else:
         print('unknown language: {}'.format(language))
         exit(0)
 
     # clone detection
     print('performing clone detection...')
-    os.system('./clone-detect/clonedetector -i ./tokens -o ./report -t {} -m {} -l {}'.format(threshold, mode, language))
+    os.system('./clone-detect/clonedetector -i ./tokens -o ./report -t {} -m {} -l {}'.format(
+        threshold, mode, language))
 
     # collect results
     print('collect detection results...')
