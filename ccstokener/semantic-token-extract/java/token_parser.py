@@ -1662,7 +1662,10 @@ class TokenParser(object):
         field = self.parse_expression_2(obj.expression)
 
         # fix method reference with `::` syntax
-        if field: # field may be empty due to `this` identifier of any literal, i.e `this::someMethod` syntax
+        if isinstance(obj.expression, tree.ClassReference):
+            var_name = obj.expression.type.name
+            self.add_global_variable(var_name, self.unpack_type(field))
+        elif field: # field may be empty due to `this` identifier of any literal, i.e `this::someMethod` syntax
             if 'member' in field and type(field['member']) == list:
                 for name in field['member']:
                     self.add_global_field(name=name)
