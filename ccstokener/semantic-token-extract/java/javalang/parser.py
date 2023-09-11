@@ -514,6 +514,10 @@ class Parser(object):
     @parse_debug
     def parse_type_argument(self):
         pattern_type = None
+        annotation = None
+
+        if self.would_accept('@'):
+           annotation = self.parse_annotation()
 
         if self.try_accept('?'):
             if self.tokens.look().value in ('extends', 'super'):
@@ -532,7 +536,8 @@ class Parser(object):
         base_type.dimensions += self.parse_array_dimension()
 
         return tree.TypeArgument(type=base_type,
-                                 pattern_type=pattern_type)
+                                 pattern_type=pattern_type,
+                                 annotation=annotation)
 
     @parse_debug
     def parse_nonwildcard_type_arguments(self):
