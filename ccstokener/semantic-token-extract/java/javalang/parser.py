@@ -1402,7 +1402,7 @@ class Parser(object):
         elif self.try_accept('switch'):
             switch_expression = self.parse_par_expression()
             self.accept('{')
-            switch_block = self.parse_switch_block_statement_groups()
+            switch_block = self._block_statement_groups()
             self.accept('}')
 
             return tree.SwitchStatement(expression=switch_expression,
@@ -1591,11 +1591,11 @@ class Parser(object):
     # -- Switch and for statements ---
 
     @parse_debug
-    def parse_switch_block_statement_groups(self):
+    def _block_statement_groups(self):
         statement_groups = list()
 
         while self.tokens.look().value in ('case', 'default'):
-            statement_group = self.parse_switch_block_statement_group()
+            statement_group = self._block_statement_group()
             statement_groups.append(statement_group)
 
         return statement_groups
@@ -1609,12 +1609,19 @@ class Parser(object):
             case_type = self.tokens.next().value
 
             if case_type == 'case':
-                if self.would_accept(Identifier, ':') or self.would_accept(Identifier, '->'):
-                    case_value = self.parse_identifier()
-                else:
-                    case_value = self.parse_expression()
+                while True:
+                    if self.would_accept(Identifier, ':') or self.would_accept(Identifier, '->'):
+                        case_value = self.parse_identifier()
+                    else:
+                        case_value = self.parse_expression()
 
-                labels.append(case_value)
+                    labels.append(case_value)
+                    token = self.tokens.look()
+
+                    if token.value in (':', '->'):
+                        break
+                    elif token.value in ',':
+                        self.accept(',')
             elif not case_type == 'default':
                 self.illegal("Expected switch case")
 
