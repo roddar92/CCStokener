@@ -1810,6 +1810,8 @@ class Parser(object):
         while token.value in Operator.INFIX or token.value == 'instanceof':
             if self.try_accept('instanceof'):
                 comparison_type = self.parse_type()
+                if isinstance(self.tokens.look(), Identifier):
+                    _ = self.parse_identifier()
                 parts.extend(('instanceof', comparison_type))
             else:
                 operator = self.parse_infix_operator()
