@@ -304,6 +304,9 @@ class Parser(object):
             import_declaration = self.parse_import_declaration()
             import_declaration._position = token.position
             import_declarations.append(import_declaration)
+            
+            if self.would_accept(';'):
+                self.accept(';')
 
         while not isinstance(self.tokens.look(), EndOfInput):
             type_declaration = None
