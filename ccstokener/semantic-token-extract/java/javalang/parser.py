@@ -1962,7 +1962,7 @@ class Parser(object):
                 invocation.type_arguments = type_arguments
                 return invocation
         elif isinstance(token, Identifier):
-            if self.would_accept(Identifier, '[', ']'):
+            if self.would_accept(Identifier, '[', ']') and not self.would_accept(Identifier, '[', ']', '.', 'class'):
                 created_name = self.parse_created_name()
                 rest = self.parse_array_creator_rest()
                 rest.type = created_name
