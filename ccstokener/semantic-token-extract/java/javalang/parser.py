@@ -1962,10 +1962,15 @@ class Parser(object):
                 invocation.type_arguments = type_arguments
                 return invocation
         elif isinstance(token, Identifier):
-            if self.would_accept(Identifier, '[', ']') and not self.would_accept(Identifier, '[', ']', '.', 'class'):
+            if self.would_accept(Identifier, '[', ']'):
                 created_name = self.parse_created_name()
                 rest = self.parse_array_creator_rest()
-                rest.type = created_name
+                if isinstance(rest, tree.ClassReference):
+                    rest.type = tree.ReferenceType(name=created_name)
+                    rest.qualifier = created_name
+                    rest._position = token.position
+                else:
+                    rest.type = created_name
                 return rest
 
             qualified_identifier = [self.parse_identifier()]
@@ -2140,6 +2145,9 @@ class Parser(object):
                 for i in range(len(array_dimension)):
                     array_dimension[i] = tree.Literal(value='0')
                 return tree.ArrayCreator(dimensions=array_dimension)
+            elif self.would_accept('.', 'class'):
+                self.accept('.', 'class')
+                return tree.ClassReference(type=tree.Type(dimensions=array_dimension))
             
             array_initializer = self.parse_array_initializer()
 
