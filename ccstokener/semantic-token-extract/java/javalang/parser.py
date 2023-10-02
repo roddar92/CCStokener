@@ -1184,19 +1184,6 @@ class Parser(object):
         return modifiers, annotations
 
     @parse_debug
-    def parse_variable_declators(self):
-        declarators = list()
-
-        while True:
-            declarator = self.parse_variable_declator()
-            declarators.append(declarator)
-
-            if not self.try_accept(','):
-                break
-
-        return declarators
-
-    @parse_debug
     def parse_variable_declarators(self):
         declarators = list()
 
@@ -1226,7 +1213,7 @@ class Parser(object):
         if self.try_accept('='):
             initializer = self.parse_variable_initializer()
 
-        return (array_dimension, initializer)
+        return array_dimension, initializer
 
     @parse_debug
     def parse_variable_initializer(self):
